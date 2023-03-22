@@ -3,39 +3,16 @@ import os
 import asyncio
 import aiohttp
 import sys
+import time
 from config import ZOHO_API_TOKEN, REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET
-
 
 module_api_name = "Contacts"
 GRANT_TYPE = 'refresh_token'
-input_dir = 'cutted_files'
-output_file = 'output.json'
+input_dir = 'cutted_files/'
 current_file_name = 'current_file.txt'
 
 
-async def update_token():
-    refresh_token_url = "https://accounts.zoho.com/oauth/v2/token"
-    refresh_token_data = {
-        "refresh_token": REFRESH_TOKEN,
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-        "grant_type": GRANT_TYPE,
-    }
-
-    while True:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(refresh_token_url, data=refresh_token_data) as resp:
-                result = await resp.json()
-                if "access_token" in result:
-                    global ZOHO_API_TOKEN
-                    ZOHO_API_TOKEN = result["access_token"]
-                    print("Token updated successfully.")
-                else:
-                    print("Error updating token:", result)
-        await asyncio.sleep(3000)  # Обновление токена каждые 50 минут (3000 секунд)
-
-
-async def update_token_fast():
+async def request_new_token():
     refresh_token_url = "https://accounts.zoho.com/oauth/v2/token"
     refresh_token_data = {
         "refresh_token": REFRESH_TOKEN,
@@ -63,12 +40,12 @@ async def upload_contacts_from_file(file_path):
                 entry = json.loads(line)
                 contacts.append(entry)
 
-                if len(contacts) == 1000:  # Загружаем контакты пакетами по 1000
-                    asyncio.ensure_future(upload_contacts_batch(contacts, session))
+                if len(contacts) == 100:  # Загружаем контакты пакетами по 100
+                    await upload_contacts_batch(contacts, session)
                     contacts = []
 
             if contacts:  # Загрузить оставшиеся контакты, если есть
-                asyncio.ensure_future(upload_contacts_batch(contacts, session))
+                await upload_contacts_batch(contacts, session)
 
 
 async def upload_contacts_batch(contacts_data, session):
@@ -81,48 +58,67 @@ async def upload_contacts_batch(contacts_data, session):
     async with session.post(url, headers=headers, json={'data': contacts_data}) as response:
         try:
             response.raise_for_status()
-            response_data = await response.json()  # Получить данные ответа в формате JSON
+            # response_data = await response.json()  # Получить данные ответа в формате JSON
             print(f'Successfully added {len(contacts_data)} contacts.')
-            print(response_data)  # Вывести данные ответа
 
         except Exception as e:
             print(f'Error occurred: {e}')
-            sys.exit(1)  # Завершить программу с кодом ошибки 1
-
-
-def read_current_file_name():
-    if os.path.exists(current_file_name):
-        with open(current_file_name, 'r') as file:
-            return file.read().strip()
-    return None
-
-
-def write_current_file_name(file_name):
-    with open(current_file_name, 'w') as file:
-        file.write(file_name)
+            sys.exit(1)
 
 
 async def main():
-    await update_token_fast()
+    await request_new_token()
     await asyncio.sleep(2)
-    update_token_task = asyncio.create_task(update_token())
+    start_time = int(time.time())
 
-    current_processed_file = read_current_file_name()
-    found_file = False
-    upload_tasks = []
+    # название файла, в котором хранится последний обработанный файл
+    filename_log = "last_processed_file.txt"
 
-    for file_name in os.listdir(input_dir):
-        if file_name.startswith("prepare_v02_"):
-            if current_processed_file is None or found_file:
-                file_path = os.path.join(input_dir, file_name)
-                print(f"Processing file: {file_path}")
-                write_current_file_name(file_name)
-                task = asyncio.create_task(upload_contacts_from_file(file_path))
-                upload_tasks.append(task)
-            elif current_processed_file == file_name:
-                found_file = True
+    # если файл с логом существует, прочитаем из него последний обработанный файл
+    if os.path.isfile(filename_log):
+        with open(filename_log, "r") as f:
+            last_processed_file = f.read().strip()
+    else:
+        # если лога нет, обработаем первый файл из директории
+        files = os.listdir(input_dir)
+        files = sorted([f for f in files if f.startswith("prepare_v02_")])
+        last_processed_file = files[0]
 
-    await asyncio.gather(update_token_task, *upload_tasks)
+    # обработаем оставшиеся файлы
+    files = os.listdir(input_dir)
+    files = sorted([f for f in files if f.startswith("prepare_v02_")], key=lambda x: int(x.split("_")[2].split(".")[0]))
+
+    for file in files:
+        # прочитаем первую строку файла
+        try:
+            with open(input_dir + file, "r") as f:
+                # check 50 min
+                time_now = int(time.time())
+                print(time_now)
+                elapsed_time = time_now - start_time
+                if elapsed_time >= 3000:
+                    await request_new_token()
+                    start_time = time.time()
+
+                first_line = f.readline().strip()
+
+            file_path = input_dir + file
+            await upload_contacts_from_file(file_path)
+
+        except Exception as e:
+            # если возникла ошибка, запомним название файла и перейдем к следующему
+            with open("error_log.txt", "a") as f:
+                f.write(f"Error processing file {file}: {str(e)}\n")
+            continue
+
+        # запомним название обрабатываемого файла
+        with open(filename_log, "w") as f:
+            f.write(file)
+
+        # сделаем что-то с первой строкой файла (например, выведем ее на экран)
+        print(f"First line of {file}: {first_line}")
 
 asyncio.run(main())
+
+
 
