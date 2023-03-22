@@ -43,7 +43,7 @@ async def upload_contacts_batch(contacts_data, session):
     async with session.post(url, headers=headers, json={'data': contacts_data}) as response:
         try:
             response.raise_for_status()
-            print(f'Successfully added {len(contacts_data)} contacts.')
+            # print(f'Successfully added {len(contacts_data)} contacts.')
 
         except Exception as e:
             print(f'Error occurred: {e}')
