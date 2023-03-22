@@ -83,7 +83,7 @@ async def main():
     rows = c.fetchall()
 
     start_time = time.time()
-    total_records = 0
+    total_records = start_id
 
     while rows:
         contacts_data = [{'id': row[0], 'First_Name': row[1], 'Last_Name': row[2], 'Email': row[3],
@@ -94,7 +94,8 @@ async def main():
             await upload_contacts_batch(contacts_data, session)
 
         total_records += len(contacts_data)
-        print(f"Общее количество отправленных записей: {total_records}")
+        formatted_total_records = format(total_records, ",")
+        print(f"Общее количество отправленных записей: {formatted_total_records}")
 
         last_id = rows[-1][0]
         write_id_to_file(id_filename, last_id)
