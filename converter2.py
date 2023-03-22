@@ -2,13 +2,12 @@ import json
 import os
 import asyncio
 import aiohttp
-import requests
-from concurrent.futures import ThreadPoolExecutor
+import sys
+from config import ZOHO_API_TOKEN, REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET
 
-COUNTRIES = ['united states', 'sweden']
-ZOHO_API_TOKEN = '1000.c8d7ff6649539a54fa1b5046780d3f0e.432a72e3708c9c67e94c124950a57246'
+
 module_api_name = "Contacts"
-
+GRANT_TYPE = 'refresh_token'
 input_dir = 'cutted_files'
 output_file = 'output.json'
 current_file_name = 'current_file.txt'
@@ -17,10 +16,10 @@ current_file_name = 'current_file.txt'
 async def update_token():
     refresh_token_url = "https://accounts.zoho.com/oauth/v2/token"
     refresh_token_data = {
-        "refresh_token": "1000.b06043dd35041d8c55d58295d4c3dbf3.41f8e4dddd836c66a871814d12a3ca4c",
-        "client_id": "1000.WZUONTXZWT47K71C5RFUCLT3TB34TW",
-        "client_secret": "071c69a62b93d7dde45d8c46c4f64672c08142612e",
-        "grant_type": "refresh_token",
+        "refresh_token": REFRESH_TOKEN,
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": GRANT_TYPE,
     }
 
     while True:
@@ -39,10 +38,10 @@ async def update_token():
 async def update_token_fast():
     refresh_token_url = "https://accounts.zoho.com/oauth/v2/token"
     refresh_token_data = {
-        "refresh_token": "1000.b06043dd35041d8c55d58295d4c3dbf3.41f8e4dddd836c66a871814d12a3ca4c",
-        "client_id": "1000.WZUONTXZWT47K71C5RFUCLT3TB34TW",
-        "client_secret": "071c69a62b93d7dde45d8c46c4f64672c08142612e",
-        "grant_type": "refresh_token",
+        "refresh_token": REFRESH_TOKEN,
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": GRANT_TYPE,
     }
 
     async with aiohttp.ClientSession() as session:
@@ -57,33 +56,38 @@ async def update_token_fast():
 
 
 async def upload_contacts_from_file(file_path):
-    loop = asyncio.get_event_loop()
+    async with aiohttp.ClientSession() as session:
+        with open(file_path, 'r') as infile:
+            contacts = []
+            for line in infile:
+                entry = json.loads(line)
+                contacts.append(entry)
+
+                if len(contacts) == 1000:  # Загружаем контакты пакетами по 1000
+                    asyncio.ensure_future(upload_contacts_batch(contacts, session))
+                    contacts = []
+
+            if contacts:  # Загрузить оставшиеся контакты, если есть
+                asyncio.ensure_future(upload_contacts_batch(contacts, session))
+
+
+async def upload_contacts_batch(contacts_data, session):
     url = f'https://recruit.zoho.com/recruit/v2/{module_api_name}/upsert'
     headers = {
         'Authorization': f'Zoho-oauthtoken {ZOHO_API_TOKEN}',
         'Content-Type': 'application/json'
     }
 
-    with open(file_path, 'r') as infile:
-        for line in infile:
-            entry = json.loads(line)
+    async with session.post(url, headers=headers, json={'data': contacts_data}) as response:
+        try:
+            response.raise_for_status()
+            response_data = await response.json()  # Получить данные ответа в формате JSON
+            print(f'Successfully added {len(contacts_data)} contacts.')
+            print(response_data)  # Вывести данные ответа
 
-            contact_data = {
-                'data': [entry]
-            }
-
-            with ThreadPoolExecutor() as executor:
-                try:
-                    response = await loop.run_in_executor(executor, lambda: requests.post(url, headers=headers, json=contact_data))
-                    response.raise_for_status()
-
-                    print(f'Successfully added contact: {entry["First_Name"]} {entry["Last_Name"]}')
-                    print(response)
-
-                except Exception as e:
-                    print(f'Error occurred: {e}')
-
-                await asyncio.sleep(1)
+        except Exception as e:
+            print(f'Error occurred: {e}')
+            sys.exit(1)  # Завершить программу с кодом ошибки 1
 
 
 def read_current_file_name():
@@ -105,6 +109,7 @@ async def main():
 
     current_processed_file = read_current_file_name()
     found_file = False
+    upload_tasks = []
 
     for file_name in os.listdir(input_dir):
         if file_name.startswith("prepare_v02_"):
@@ -112,12 +117,12 @@ async def main():
                 file_path = os.path.join(input_dir, file_name)
                 print(f"Processing file: {file_path}")
                 write_current_file_name(file_name)
-                await upload_contacts_from_file(file_path)
+                task = asyncio.create_task(upload_contacts_from_file(file_path))
+                upload_tasks.append(task)
             elif current_processed_file == file_name:
                 found_file = True
 
-    await update_token_task
+    await asyncio.gather(update_token_task, *upload_tasks)
 
 asyncio.run(main())
-
 
