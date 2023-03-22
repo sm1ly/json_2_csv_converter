@@ -86,7 +86,7 @@ async def main():
     total_records = start_id
 
     while rows:
-        contacts_data = [{'id': row[0], 'First_Name': row[1], 'Last_Name': row[2], 'Email': row[3],
+        contacts_data = [{'First_Name': row[1], 'Last_Name': row[2], 'Email': row[3],
                           'Secondary_Email': row[4], 'Tertiary_Email': row[5], 'LinkedIn_URL': row[6],
                           'Mobile': row[7], 'Work_Phone': row[8], 'Country': row[9]} for row in rows]
 
