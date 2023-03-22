@@ -1,9 +1,9 @@
 import json
 import requests
-import tempfile
 import asyncio
 import aiohttp
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
 # Список разрешенных стран
@@ -37,13 +37,15 @@ async def json_to_zoho_contacts(input_file, output_file):
             }
 
             with open(input_file, 'r') as infile, tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_file_new, tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_file_processed:
+                remaining_lines = 0  # Счетчик оставшихся строк
+
                 for line in infile:
+                    remaining_lines += 1
                     entry = json.loads(line)
                     country = get_country(entry.get('a', ''))
 
                     if not country:
-                        temp_file_new.write(line)
-                        continue
+                        continue  # Пропустить эту строку, если нет правильной страны
 
                     names = entry.get('n', '').split(' ', 1)
                     first_name = names[0] if names else ''
@@ -76,6 +78,7 @@ async def json_to_zoho_contacts(input_file, output_file):
                             outfile.write(line)  # Запись исходной строки
 
                         temp_file_processed.write(line)
+                        remaining_lines -= 1  # Уменьшаем счетчик оставшихся строк
 
                     except Exception as e:
                         print(f'Error occurred: {e}')
@@ -87,8 +90,10 @@ async def json_to_zoho_contacts(input_file, output_file):
                     for line in temp_file_new:
                         infile.write(line)
 
-            await asyncio.sleep(1)
+            if remaining_lines == 0:  # Если не осталось строк, завершаем цикл
+                break
 
+            await asyncio.sleep(1)
 
 
 async def update_token():
