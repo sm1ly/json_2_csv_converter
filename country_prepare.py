@@ -40,7 +40,14 @@ output_file_prefix = 'prepare_v02_'
 max_lines_per_file = 500000
 file_counter = 1
 
-COUNTRIES = ['united states', 'sweden']
+
+COUNTRIES = ['argentina', 'armenia', 'australia', 'austria', 'azerbaijan', 'belarus', 'belgium', 'brazil',
+             'bulgaria', 'canada', 'croatia', 'cyprus', 'czechia', 'denmark', 'estonia', 'finland', 'france',
+             'georgia', 'germany', 'gibraltar', 'greece', 'hong kong', 'hungary', 'iceland', 'ireland', 'israel',
+             'italy', 'kazakhstan', 'kyrgyzstan', 'latvia', 'liechtenstein', 'lithuania', 'luxembourg', 'malta',
+             'moldova', 'monaco', 'montenegro', 'netherlands', 'new zealand', 'norway', 'poland', 'portugal',
+             'russia', 'saudi arabia', 'serbia', 'singapore', 'slovakia', 'slovenia', 'spain', 'sweden',
+             'switzerland', 'turkey', 'ukraine', 'united arab emirates', 'united kingdom', 'united states']
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
