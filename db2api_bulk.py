@@ -29,6 +29,8 @@ async def send_file_and_request_processing(zip_filename):
             form_data = aiohttp.FormData()
             form_data.add_field("file", file, filename=zip_filename)
             async with session.post(upload_url, headers=headers, data=form_data) as response:
+                response.raise_for_status()
+                sys.exit(1)
                 try:
                     response.raise_for_status()
                     result = await response.json()
@@ -52,7 +54,6 @@ async def send_file_and_request_processing(zip_filename):
                 except Exception as e:
                     print(f"Error occurred: {e}")
                     sys.exit(1)
-
 
 async def process_file(file_id):
     # Заглушка для отправки запроса на обработку файла
@@ -148,7 +149,7 @@ async def main():
                           'Mobile': row[7], 'Work_Phone': row[8], 'Country': row[9]} for row in rows]
 
         csv_filename = f'contacts_{start_id}.csv'
-        zip_filename = f'contacts_{start_id}.csv.zip'
+        zip_filename = f'contacts_{start_id}.zip'
 
         save_to_csv_file(contacts_data, csv_filename)
         compress_file_to_zip(csv_filename, zip_filename)
