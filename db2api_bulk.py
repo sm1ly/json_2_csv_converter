@@ -7,22 +7,21 @@ import json
 import zipfile
 import csv
 from contextlib import asynccontextmanager
-from config import REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET
+from config import REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET, ZGID
 
 ZOHO_API_TOKEN = ""  # Изначально устанавливаем пустой токен
 GRANT_TYPE = "refresh_token"
 module_api_name = "Contacts"
 
-
 async def send_file_and_request_processing(zip_filename):
-    # Замените org_id на ваше значение
-    org_id = "56xxxx47"
     upload_url = "https://upload.zoho.com/recruit/v2/upload"
     headers = {
         "Authorization": f"Zoho-oauthtoken {ZOHO_API_TOKEN}",
-        "X-RECRUIT-ORG": org_id,
-        "feature": "bulk-write",
+        "X-RECRUIT-ORG": ZGID,
+        "feature": "bulk-write"
     }
+
+    print("ZAPI: ", ZOHO_API_TOKEN)
 
     # Отправляем файл
     async with aiohttp.ClientSession() as session:
@@ -119,7 +118,7 @@ async def create_session():
         yield session
 
 def save_to_csv_file(data, filename):
-    with open(filename, 'w', newline='') as f:
+    with open(filename, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f, delimiter=';')
         writer.writerow(['First_Name', 'Last_Name', 'Email', 'Secondary_Email',
                          'Tertiary_Email', 'LinkedIn_URL', 'Mobile', 'Work_Phone', 'Country'])
