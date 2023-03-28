@@ -15,7 +15,7 @@ def write_id_to_file(filename, id):
 
 def save_to_csv_file(data, filename):
     with open(f'csv_files/{filename}', 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f, delimiter=';')
+        writer = csv.writer(f, delimiter=',')
         writer.writerow(['First_Name', 'Last_Name', 'Email', 'Secondary_Email',
                          'Tertiary_Email', 'LinkedIn_URL', 'Mobile', 'Work_Phone', 'Country'])
         for row in data:
@@ -30,7 +30,7 @@ async def main():
     conn = sqlite3.connect(sqlite_db)
     c = conn.cursor()
 
-    c.execute(f"SELECT * FROM contacts WHERE id > ? ORDER BY id LIMIT 24999", (start_id,))
+    c.execute(f"SELECT * FROM contacts WHERE id > ? ORDER BY id LIMIT 19999", (start_id,))
     rows = c.fetchall()
 
     total_records = start_id
@@ -40,11 +40,9 @@ async def main():
                           'Secondary_Email': row[4], 'Tertiary_Email': row[5], 'LinkedIn_URL': row[6],
                           'Mobile': row[7], 'Work_Phone': row[8], 'Country': row[9]} for row in rows]
 
-        csv_filename = f'contacts_{start_id}.csv'
-
+        file_id = read_id_from_file(id_filename)
+        csv_filename = f'contacts_{file_id}.csv'
         save_to_csv_file(contacts_data, csv_filename)
-
-        file_id = read_id_from_file
 
         total_records += len(contacts_data)
         formatted_total_records = format(total_records, ",")
@@ -56,7 +54,7 @@ async def main():
         last_id = rows[-1][0]
         write_id_to_file(id_filename, last_id)
 
-        c.execute(f"SELECT * FROM contacts WHERE id > ? ORDER BY id LIMIT 24999", (last_id,))
+        c.execute(f"SELECT * FROM contacts WHERE id > ? ORDER BY id LIMIT 19999", (last_id,))
         rows = c.fetchall()
 
     conn.close()
